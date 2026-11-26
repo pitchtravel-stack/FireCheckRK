@@ -171,6 +171,34 @@ test('Dashboard API: Gmail + OTP, ยืนยัน, ขอถ่ายให�
   assert.strictEqual(api(env, { action: 'dashboard', token: 'bad' }).error, 'SESSION_EXPIRED');
 });
 
+test('ซ่อม/ติดตั้งใหม่: ถังชำรุดกลับเป็นพร้อมใช้ โดยประวัติเดิมยังอยู่', () => {
+  const env = boot({});
+  const s = env.g('staffUpsert_')('ช่างซี');
+  lineEvent(env, { type: 'message', message: { type: 'text', id: 't', text: s.pin } });
+  env.setGemini(() => Object.assign({}, OK_CARD, { items: Object.assign({}, OK_CARD.items, { gauge: 'bad' }) }));
+  lineEvent(env, { type: 'message', timestamp: Date.parse('2026-12-03T03:00:00Z'), message: { type: 'image', id: 'c1' } });
+  assert.strictEqual(env.rows('AI_Results')[0].AI_Result, 'broken');
+
+  let r = lineEvent(env, { type: 'message', message: { type: 'text', id: 't', text: 'ซ่อมแล้ว fe12' } });
+  assert.match(r.reply, /ส่งรูปถัง FE012/);
+  const g = env.outbox.gemini;
+  r = lineEvent(env, { type: 'message', timestamp: Date.parse('2026-12-10T03:00:00Z'), message: { type: 'image', id: 'c2' } });
+  assert.match(r.reply, /บันทึกการซ่อม/);
+  assert.strictEqual(env.outbox.gemini, g);                       // ไม่เรียก AI
+  const fix = env.rows('AI_Results')[1];
+  assert.strictEqual(fix.Device_ID, 'FE012');
+  assert.strictEqual(fix.AI_Result, 'ready');
+  assert.strictEqual(fix.Review_Needed, 'YES');
+  assert.strictEqual(env.rows('Inspections')[1].Source, 'FIX');
+
+  const raw = env.g('loadRaw_')();
+  const D = env.g('buildDashboard')(raw, '2026-12-11', raw.settings);
+  const t = D.tanks.filter((x) => x.id === 'FE012')[0];
+  assert.strictEqual(t.result, 'ready');
+  assert.strictEqual(D.queue.pending.length, 1);                 // รายการซ่อมแทนที่รายการชำรุดเดิมในคิว
+  assert.strictEqual(D.queue.pending[0].source, 'FIX');
+});
+
 test('webhook ที่ไม่มี key ถูกปฏิเสธ', () => {
   const env = boot({});
   const out = env.g('doPost')({ parameter: {}, postData: { contents: JSON.stringify({ events: [] }) } });

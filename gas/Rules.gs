@@ -315,6 +315,8 @@ function parseLineText(text) {
   if (/^\d{6}$/.test(t)) return { cmd: 'pin', value: t };
   var tank = normalizeTankId(t);
   if (tank) return { cmd: 'tank', value: tank };
+  var fix = t.match(/^(ซ่อมแล้ว|ติดตั้งแล้ว|แก้ไขแล้ว|ติดตั้งใหม่|เปลี่ยนแล้ว|เติมแล้ว)\s*(.*)$/);
+  if (fix) return { cmd: 'fix', value: normalizeTankId(fix[2]) };
   if (/^(ออก|ออกจากระบบ|logout|log out)$/.test(low)) return { cmd: 'logout' };
   if (/^(รูปชำรุด|รูปจุดชำรุด|รูปผิดปกติ|ชำรุด)$/.test(t)) return { cmd: 'defect' };
   if (/^(ยกเลิก|ยกเลิกรูปล่าสุด|cancel)$/.test(low)) return { cmd: 'cancel' };

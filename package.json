@@ -1,6 +1,6 @@
 {
   "name": "firecheck",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "private": true,
   "description": "FireCheck — ตรวจถังดับเพลิงด้วยบัตรเช็ค + AI ส่งรูปผ่าน LINE OA (Google Apps Script + GitHub Pages)",
   "scripts": {

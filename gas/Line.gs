@@ -138,6 +138,12 @@ function onLineText_(ev, uid, text) {
   }
   if (c.cmd === 'status') return lineReply_(ev.replyToken, [lineText_(lineStatusText_(sess), true)]);
   if (c.cmd === 'tank') return onLineTank_(ev, uid, sess, c.value, recent);
+  if (c.cmd === 'fix') {
+    const t = c.value && loadTanks_().filter(function (x) { return x.id === c.value; })[0];
+    if (!t) return lineReply_(ev.replyToken, [lineText_('พิมพ์ "ซ่อมแล้ว" ตามด้วยรหัสถัง เช่น ซ่อมแล้ว FE012')]);
+    cache.put('fix_' + uid, t.id, 900);
+    return lineReply_(ev.replyToken, [lineText_('ส่งรูปถัง ' + t.id + ' ' + t.loc + ' ที่จุดติดตั้ง (ให้เห็นถัง เกจ และป้าย) 1 รูป ภายใน 15 นาที', true)]);
+  }
 
   if (!recent) {
     return lineReply_(ev.replyToken, [lineText_('ยังไม่มีรูปที่ส่งในช่วง ' + RECENT_MIN + ' นาทีนี้\nส่งรูปบัตรเช็ค หรือพิมพ์ "วิธีใช้"', true)]);
@@ -211,6 +217,15 @@ function onLineImage_(ev, uid, m) {
   touchSession_(sess, st);
   const cache = CacheService.getScriptCache();
 
+  const fixTank = cache.get('fix_' + uid);
+  if (fixTank) {
+    cache.remove('fix_' + uid);
+    const r = saveFixPhoto_(sess, uid, m.id, ev.timestamp, fixTank);
+    setRecent_(uid, r);
+    const t = loadTanks_().filter(function (x) { return x.id === fixTank; })[0] || {};
+    return lineReply_(ev.replyToken, [lineText_('🛠 บันทึกการซ่อม/ติดตั้งใหม่ ' + fixTank + ' ' + (t.loc || '') + ' แล้ว\nสถานะเป็นพร้อมใช้ รอทีม ENV ดูรูปยืนยัน\nพิมพ์ข้อความเพื่อเพิ่มรายละเอียด เช่น เติมผงเคมีใหม่', true)]);
+  }
+
   const defectRow = cache.get('defect_' + uid);
   if (defectRow) {
     cache.remove('defect_' + uid);
@@ -234,7 +249,7 @@ function onLineImage_(ev, uid, m) {
 }
 
 /** บันทึกรูปลง Drive + เพิ่มแถวใน Inspections และ AI_Results คืน { insp, ai } */
-function saveLinePhoto_(sess, uid, msgId, tsMs, hint, status) {
+function saveLinePhoto_(sess, uid, msgId, tsMs, hint, status, source) {
   const blob = lineContent_(msgId);
   const sent = isoFromMs_(tsMs || Date.now());
   let exif = exifDateTime(blob.getBytes());
@@ -246,7 +261,7 @@ function saveLinePhoto_(sess, uid, msgId, tsMs, hint, status) {
   const insp = {
     Row_ID: rowId, Device_ID: hint || '', Card_Photo: file.getId(), Defect_Photo: '', Note: '',
     Captured_At: exif || sent, GPS: '', Inspector: String(sess.staff.Name),
-    Source: 'LINE', Time_Source: exif ? 'EXIF' : 'SENT', Sent_At: sent, Line_User_ID: uid, Message_ID: msgId
+    Source: source || 'LINE', Time_Source: exif ? 'EXIF' : 'SENT', Sent_At: sent, Line_User_ID: uid, Message_ID: msgId
   };
   const ai = {
     Row_ID: rowId, Device_ID: hint || '', Round_ID: '', First_Seen_At: sent, Status: status, Attempts: 0,
@@ -257,6 +272,28 @@ function saveLinePhoto_(sess, uid, msgId, tsMs, hint, status) {
     ai._row = appendObjects_(SH.AI, [ai]);
   });
   return { insp: insp, ai: ai };
+}
+
+/** บันทึกการซ่อม/ติดตั้งใหม่ (ไม่อ่านบัตร) — ผลพร้อมใช้ และให้ทีม ENV ยืนยันจากรูป */
+function saveFixPhoto_(sess, uid, msgId, tsMs, tank) {
+  const rec = saveLinePhoto_(sess, uid, msgId, tsMs, tank, 'NEW', 'FIX');
+  const st = getSettings_();
+  const rd = roundForDate(loadRounds_(), rec.insp.Sent_At);
+  const r = rec.ai;
+  r.Status = 'OK'; r.Read_At = nowIso_(); r.Attempts = 0; r.Claimed_At = '';
+  r.Round_ID = rd ? rd.id : '';
+  r.Found = 'found';
+  r.AI_Result = 'ready';
+  r.Flags = 'บันทึกซ่อม/ติดตั้งใหม่โดยช่าง (ไม่ได้อ่านบัตร)';
+  r.Inspect_Timing = inspectTiming(rd, rec.insp.Sent_At);
+  r.Submit_Timing = submitTiming(rd, rec.insp.Sent_At);
+  r.Review_Needed = 'YES';
+  r.Confidence = 1;
+  r.Model = 'FIX';
+  r.Line_Notified = 'YES';
+  r.Photo_Hash = '';
+  writeObject_(SH.AI, r._row, r);
+  return r;
 }
 
 function setRecent_(uid, r) {
@@ -321,6 +358,7 @@ function lineHelpText_(welcome) {
     'คำสั่ง\n' +
     '• FE012 — ระบุ/แก้รหัสถังของรูปล่าสุด\n' +
     '• รูปชำรุด — ส่งรูปจุดชำรุดของรูปล่าสุด\n' +
+    '• ซ่อมแล้ว FE012 — แจ้งว่าซ่อม/ติดตั้งใหม่แล้ว แล้วส่งรูปถังที่จุด\n' +
     '• ยกเลิก — ยกเลิกรูปล่าสุด\n' +
     '• สถานะ — ความคืบหน้ารอบนี้\n' +
     '• ออกจากระบบ — เมื่อใช้เครื่องร่วมกับคนอื่น\n' +

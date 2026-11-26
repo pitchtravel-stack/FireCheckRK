@@ -228,7 +228,7 @@ body{padding:0}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='2.0.1';
+var APP_VERSION='2.1.0';
 var API=window.FIRECHECK_API||'';
 var TH_M=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 var ITEMS=[['pin','สลักและสายฉีด'],['lever','คันบีบและข้อต่อ'],['body','สภาพตัวถัง'],['gauge','เกจวัดแรงดัน'],['powder','ผงเคมีไม่จับตัวแข็ง'],['mount','จุดติดตั้ง ป้าย ทางเข้าถึง']];
@@ -399,6 +399,7 @@ function rvHTML(f){
   var flags=f.flags.map(function(x){return '<span class="pill c-crit">'+esc(x)+'</span>';}).join('');
   if(f.status==='OK'&&f.confidence<S.D.settings.confidenceMin)flags='<span class="pill c-warn">AI มั่นใจ '+Math.round(f.confidence*100)+'%</span>'+flags;
   if(f.result==='broken'||f.result==='absent')flags+=pill(['ผล'+RES[f.result][0],RES[f.result][1]]);
+  if(f.source==='FIX')flags='<span class="pill c-acc">🛠 ซ่อม/ติดตั้งใหม่ — ดูรูปว่าถังพร้อมใช้จริง</span>'+flags;
   var photo=f.status==='OK'||f.photoId?'<div class="photo" data-photo="'+f.rowId+'">กำลังโหลดรูป…</div>':'<div class="photo">ยังไม่มีรูป</div>';
   return '<article class="rv" data-row="'+f.rowId+'">'+
     '<div class="stack" style="gap:6px">'+photo+(f.hasDefectPhoto?'<button class="btn" data-defect="'+f.rowId+'">ดูรูปจุดผิดปกติ</button>':'')+'</div>'+

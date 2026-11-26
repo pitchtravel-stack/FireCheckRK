@@ -3,7 +3,7 @@
  * FireCheck · ระบบตรวจถังดับเพลิงด้วยบัตรเช็ค + AI (ส่งรูปผ่าน LINE OA)
  */
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.1.0';
 const TZ = 'Asia/Bangkok';
 
 const SH = {

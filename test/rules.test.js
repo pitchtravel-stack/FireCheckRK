@@ -19,6 +19,8 @@ test('parseLineText', () => {
   assert.strictEqual(R.parseLineText('สถานะ').cmd, 'status');
   assert.strictEqual(R.parseLineText('ออกจากระบบ').cmd, 'logout');
   assert.strictEqual(R.parseLineText('วิธีใช้').cmd, 'help');
+  assert.deepStrictEqual(R.parseLineText('ซ่อมแล้ว FE 7'), { cmd: 'fix', value: 'FE007' });
+  assert.deepStrictEqual(R.parseLineText('ติดตั้งแล้ว'), { cmd: 'fix', value: '' });
   assert.deepStrictEqual(R.parseLineText('สายฉีดแตก'), { cmd: 'note', value: 'สายฉีดแตก' });
 });
 
