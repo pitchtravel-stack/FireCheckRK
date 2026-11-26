@@ -1,0 +1,14 @@
+{
+  "name": "firecheck",
+  "version": "2.0.0",
+  "private": true,
+  "description": "FireCheck — ตรวจถังดับเพลิงด้วยบัตรเช็ค + AI ส่งรูปผ่าน LINE OA (Google Apps Script + GitHub Pages)",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "push": "clasp push",
+    "deploy": "clasp push && clasp deploy --deploymentId \"$DEPLOYMENT_ID\" --description \"v$npm_package_version\""
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}
