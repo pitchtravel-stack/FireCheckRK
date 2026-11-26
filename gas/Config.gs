@@ -3,7 +3,7 @@
  * FireCheck · ระบบตรวจถังดับเพลิงด้วยบัตรเช็ค + AI (ส่งรูปผ่าน LINE OA)
  */
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const TZ = 'Asia/Bangkok';
 
 const SH = {
@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS = [
   ['ENV_EMAILS', '', 'อีเมลทีม ENV ที่รับการแจ้งเตือน คั่นด้วย ,'],
   ['IMMEDIATE_ALERT', 'TRUE', 'ส่งอีเมลทันทีเมื่อ AI พบถังชำรุดหรือไม่อยู่ที่จุด (TRUE/FALSE)'],
   ['GEMINI_MODEL', 'gemini-3.8-flash', 'ชื่อโมเดล Gemini ตรวจรายชื่อล่าสุดที่ ai.google.dev/gemini-api/docs/models'],
+  ['GEMINI_FALLBACK_MODEL', '', 'โมเดลสำรองเมื่อโมเดลหลักไม่ว่าง (HTTP 503/429) ใส่ได้หลายชื่อคั่นด้วย , — ว่าง = ไม่ใช้'],
   ['DATE_ORDER', 'DMY', 'ลำดับวันที่ถ้าเซลล์เป็นข้อความ: DMY (วัน/เดือน/ปี) หรือ MDY'],
   ['DASHBOARD_URL', '', 'ลิงก์ Dashboard บน GitHub Pages (ใส่ในอีเมลแจ้งเตือน)'],
   ['LINE_SESSION_HOURS', '12', 'ช่างเข้าสู่ระบบด้วย PIN แล้วใช้ได้กี่ชั่วโมงหลังใช้งานล่าสุด (0 = ไม่หมดอายุจนกว่าจะพิมพ์ "ออกจากระบบ")'],

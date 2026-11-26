@@ -123,7 +123,7 @@ function readOneCard_(r, i, st, rounds, tankIds, alerts) {
     r.Signed = ai.signed;
     r.Confidence = ai.confidence;
     r.Remark = ai.remark;
-    r.Model = st.GEMINI_MODEL;
+    r.Model = st.MODEL_USED || st.GEMINI_MODEL;
 
     const device = hint || (tankIds.indexOf(ai.tank_id_read) >= 0 ? ai.tank_id_read : '');
     if (!device) {
@@ -187,11 +187,28 @@ function findPhotoFile_(value) {
   return any.hasNext() ? any.next() : null;
 }
 
-/** เรียก Gemini ให้อ่านบัตร คืนค่าที่ผ่าน normalizeAi แล้ว (ลองซ้ำเมื่อ 429/503) */
+/** เรียก Gemini ให้อ่านบัตร คืนค่าที่ผ่าน normalizeAi แล้ว
+ * Gemini ล่ม/คนใช้เยอะ (429/503): ลองซ้ำ แล้วสลับไปใช้ GEMINI_FALLBACK_MODEL (ถ้าตั้งไว้) */
 function callGemini_(blob, roundLabel, st) {
+  const models = [st.GEMINI_MODEL].concat(String(st.GEMINI_FALLBACK_MODEL || '').split(/[,\s]+/).filter(Boolean));
+  let lastError = '';
+  for (let m = 0; m < models.length; m++) {
+    try {
+      const ai = callGeminiModel_(blob, roundLabel, st, models[m]);
+      st.MODEL_USED = models[m];
+      return ai;
+    } catch (e) {
+      lastError = String(e.message || e);
+      if (!/HTTP (429|500|503|504)/.test(lastError)) throw e;   // ปัญหาอื่น ไม่ต้องลองโมเดลสำรอง
+    }
+  }
+  throw new Error(lastError);
+}
+
+function callGeminiModel_(blob, roundLabel, st, model) {
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!key) throw new Error('ยังไม่ได้ใส่ GEMINI_API_KEY ใน Project Settings > Script Properties');
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(st.GEMINI_MODEL) + ':generateContent';
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent';
   const parts = [
     { text: buildCardPrompt(roundLabel, st.CARD_COLUMNS) },
     { inlineData: { mimeType: blob.getContentType() || 'image/jpeg', data: Utilities.base64Encode(blob.getBytes()) } }
@@ -203,7 +220,7 @@ function callGemini_(blob, roundLabel, st) {
   ];
   let lastError = '';
   for (let c = 0; c < configs.length; c++) {
-    for (let retry = 0; retry < 2; retry++) {
+    for (let retry = 0; retry < 3; retry++) {
       const res = UrlFetchApp.fetch(url, {
         method: 'post', contentType: 'application/json', muteHttpExceptions: true,
         headers: { 'x-goog-api-key': key },
@@ -218,13 +235,13 @@ function callGemini_(blob, roundLabel, st) {
         if (!out) throw new Error('Gemini ไม่ส่งผลกลับ: ' + text.slice(0, 300));
         return normalizeAi(parseJsonLoose(out));
       }
-      lastError = 'Gemini HTTP ' + code + ': ' + text.slice(0, 400);
-      if (code === 429 || code === 503) { Utilities.sleep(2500); continue; }
+      lastError = model + ' HTTP ' + code + ': ' + text.slice(0, 300);
+      if (code === 429 || code >= 500) { Utilities.sleep(2000 * (retry + 1)); continue; }
       break;
     }
     if (lastError.indexOf('HTTP 400') < 0) break;
   }
-  throw new Error(lastError);
+  throw new Error('Gemini ' + lastError);
 }
 
 /** คำนวณธงรูปซ้ำ/เร็วเกินจริงใหม่ทั้งหมด แล้วเขียนเฉพาะคอลัมน์ Cross_Flags และ Review_Needed */
@@ -296,7 +313,7 @@ function testGemini() {
     const rd = roundForDate(rounds, cap);
     const ai = callGemini_(file.getBlob(), rd ? rd.label : '', st);
     const ev = evaluateCard(ai, { selectedTank: String(i.Device_ID || '').toUpperCase(), capturedIso: cap, roundLabel: rd ? rd.label : '', roundMonth: rd ? String(rd.inspectStart).slice(5, 7) : '', hasRound: !!rd });
-    ui.alert('Gemini อ่านได้ (' + st.GEMINI_MODEL + ')\n\n' + JSON.stringify(ai, null, 2) + '\n\nผล: ' + RESULT_TH[ev.result] + '\nธง: ' + (ev.flags.join('\n') || '-'));
+    ui.alert('Gemini อ่านได้ (' + (st.MODEL_USED || st.GEMINI_MODEL) + ')\n\n' + JSON.stringify(ai, null, 2) + '\n\nผล: ' + RESULT_TH[ev.result] + '\nธง: ' + (ev.flags.join('\n') || '-'));
   } catch (e) {
     ui.alert('ทดสอบไม่สำเร็จ\n\n' + (e.message || e));
   }
